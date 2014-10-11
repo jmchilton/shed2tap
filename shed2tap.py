@@ -212,27 +212,17 @@ class Action(object):
         elif action_type == "set_environment":
             modify_environment = []
             for variable in self.variables:
-                ruby_value = templatize_string(variable["value"])
-                if variable["name"] == "PATH" and ruby_value == "#{prefix}/bin":
-                    statements.append("# bin already on PATH skipping tool shed command.")
+                if variable.implicit:
+                    statements.append("# Tool Shed set environment variable that is picked implicitly.")
                 else:
-                    modify_environment.append((ruby_value, variable))
+                    modify_environment.append(variable)
                     #statements.append("#Modify envrionment variable %s - %s %s" % (variable["name"], variable["action"], ruby_value))
             if modify_environment:
                 list_str = '''['''
-                for i, (value, env) in enumerate(modify_environment):
+                for i, set_variable in enumerate(modify_environment):
                     if i > 0:
                         list_str += ","
-                    action = env["action"]
-                    variable = env["name"]
-                    value = value.replace("#{prefix}", "$KEG_ROOT")
-                    if action == "set_to":
-                        action = "set"
-                    elif action == "prepend_to":
-                        action = "prepend"
-                    else:
-                        action = "append"
-                    list_str += '''{'action'=> '%s', 'variable'=> '%s', 'value'=> '%s'}''' % (action, variable, value)
+                    list_str += set_variable.to_ruby_hash()
                 list_str += ']'
                 statements.append('''environment(%s)''' % list_str)
                 self.package.extensions_used.add('ENVIRONMENT')
@@ -287,10 +277,7 @@ class Action(object):
         elif type == "set_environment":
             variables = []
             for ev_elem in elem.findall("environment_variable"):
-                var = {}
-                var["action"] = ev_elem.attrib["action"]
-                var["name"] = ev_elem.attrib["name"]
-                var["value"] = ev_elem.text
+                var = SetVariable(ev_elem)
                 variables.append(var)
             kwds["variables"] = variables
         elif type == "chmod":
@@ -309,6 +296,34 @@ class Action(object):
         else:
             kwds["RAW_RUBY"] = "# TODO: Implement handling of action type %s" % type
         return Action(type=type, package=package, **kwds)
+
+
+class SetVariable(object):
+    
+    def __init__(self, elem):
+        self.action = elem.attrib["action"]
+        self.name = elem.attrib["name"]
+        self.raw_value = elem.text
+        self.ruby_value = templatize_string(self.raw_value)
+
+    @property
+    def implicit(self):
+        if self.name == "PATH" and self.ruby_value == "#{prefix}/bin":
+            return True
+        else:
+            return False
+
+    def to_ruby_hash(self):
+        action = self.action
+        variable = self.name
+        value = self.ruby_value.replace("#{prefix}", "$KEG_ROOT")
+        if action == "set_to":
+            action = "set"
+        elif action == "prepend_to":
+            action = "prepend"
+        else:
+            action = "append"
+        return '''{'action'=> '%s', 'variable'=> '%s', 'value'=> '%s'}''' % (action, variable, value)
 
 
 def shell_string(tool_shed_str, quote_now=True, templatize=True):
