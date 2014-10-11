@@ -28,6 +28,8 @@ else:
 
 EXTENSION_ENVIRONMENT = """
 def environment(actions)
+    # Setup envirnoment variable modifications that will be used later by
+    # platform-brew's env and vinstall commands.
     act_hash = {"actions" => actions}
     (prefix / "platform_environment.json").write act_hash.to_json
 end
@@ -212,11 +214,10 @@ class Action(object):
         elif action_type == "set_environment":
             modify_environment = []
             for variable in self.variables:
-                if variable.implicit:
-                    statements.append("# Tool Shed set environment variable that is picked implicitly.")
-                else:
+                if variable.explicit:
                     modify_environment.append(variable)
-                    #statements.append("#Modify envrionment variable %s - %s %s" % (variable["name"], variable["action"], ruby_value))
+                else:
+                    statements.append("# Tool Shed set environment variable that is picked implicitly.")
             if modify_environment:
                 list_str = '''['''
                 for i, set_variable in enumerate(modify_environment):
@@ -224,7 +225,10 @@ class Action(object):
                         list_str += ","
                     list_str += set_variable.to_ruby_hash()
                 list_str += ']'
-                statements.append('''environment(%s)''' % list_str)
+                if self.package.has_multiple_set_environments():
+                    statements.append('''environment_actions += %s''' % list_str)
+                else:
+                    statements.append('''environment(%s)''' % list_str)
                 self.package.extensions_used.add('ENVIRONMENT')
         elif action_type == "chmod":
             for mod in self.mods:
@@ -243,6 +247,8 @@ class Action(object):
                 statements.append("# download file without extract - already available?")
         elif action_type == "change_directory":
             statements.append("cd '%s'" % self.directory)
+        elif action_type == "make_directory":
+            statements.append('''system "mkdir", "-fp", %s''' % shell_string(self.directory))
         else:
             statements.append(self.RAW_RUBY)
 
@@ -256,6 +262,13 @@ class Action(object):
             return "bin"
         else:
             return None
+
+    def explicit_variables(self):
+        type = self.type
+        if type == "set_environment":
+            return filter(lambda v: v.explicit, self.variables)
+        else:
+            return []
 
     @classmethod
     def from_elem(clazz, elem, package):
@@ -293,8 +306,13 @@ class Action(object):
             pass
         elif type == "change_directory":
             kwds["directory"] = elem.text
+        elif type == "make_directory":
+            kwds["directory"] = elem.text
+        elif type == "set_environment_for_install":
+            kwds["RAW_RUBY"] = "# Skipping set_environment_for_install command, handled by platform brew."
         else:
-            kwds["RAW_RUBY"] = "# TODO: Implement handling of action type %s" % type
+            kwds["RAW_RUBY"] = '''onoe("Unhandled tool shed action [%s] encountered.")''' % type
+
         return Action(type=type, package=package, **kwds)
 
 
@@ -305,6 +323,10 @@ class SetVariable(object):
         self.name = elem.attrib["name"]
         self.raw_value = elem.text
         self.ruby_value = templatize_string(self.raw_value)
+
+    @property
+    def explicit(self):
+        return not self.implicit
 
     @property
     def implicit(self):
@@ -374,6 +396,10 @@ class Package(object):
     def to_recipe(self):
         name = self.get_recipe_name()
         formula_builder = FormulaBuilder()
+        if self.has_explicit_set_environments():
+            # Required for environment method.
+            formula_builder.require('json')
+
         name = name.replace("__", "_")
         parts = [p[0].upper() + p[1:] for p in name.split("__")]
         temp = "|".join(parts)
@@ -398,6 +424,9 @@ class Package(object):
 
     def pop_install_def(self, formula_builder):
         formula_builder.add_and_indent("def install")
+        multiple_set_environments = self.has_multiple_set_environments()
+        if multiple_set_environments:
+            formula_builder.add_line("environment_actions = []")
 
         def handle_actions(actions):
             return self.populate_actions(formula_builder, actions.actions[1:])
@@ -406,6 +435,9 @@ class Package(object):
             handle_actions(self.all_actions[0])
         else:
             self.conditional_action_map(formula_builder, handle_actions)
+
+        if multiple_set_environments:
+            formula_builder.add_line('''environment(environment_actions)''')
 
         formula_builder.end()
 
@@ -489,6 +521,25 @@ class Package(object):
         else:
             last_action = all_actions[-1]
             return (not last_action.architecture) and (not last_action.os)
+
+    def has_explicit_set_environments(self):
+        all_actions = self.all_actions
+        for actions in all_actions:
+            for action in actions.actions:
+                if action.explicit_variables:
+                    return True
+        return False
+
+    def has_multiple_set_environments(self):
+        all_actions = self.all_actions
+        for actions in all_actions:
+            count = 0
+            for action in actions.actions:
+                if action.explicit_variables:
+                    count += 1
+            if count > 1:
+                return True
+        return False
 
     def pop_download(self, actions, formula_builder):
         one_populated = False
@@ -635,24 +686,19 @@ class RubyBuilder(object):
         assert self.indent == 0, "\n".join(self.lines)
         return "\n".join(self.lines)
 
-
-class IfBuilder(RubyBuilder):
-
-    def __init__(self):
-        super(IfBuilder, self).__init__()
+    def require(self, module):
+        assert self.indent == 0
+        self.add_line("require '%s'" % module)
 
 
 class FormulaBuilder(RubyBuilder):
 
     def __init__(self):
         super(FormulaBuilder, self).__init__()
-        self.add_line("require 'formula'")
-        self.add_line("require 'json'")
-        #self.add_line("require_relative '_platform_formula'")
-        self.add_line("")
+        self.require('formula')
 
     def set_class_name(self, name):
-
+        self.add_line("")
         self.add_and_indent("class %s < Formula" % name)
         self.add_line('version "1.0"')
 
