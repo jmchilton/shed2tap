@@ -574,7 +574,6 @@ class Repo(object):
     def get_file(self, path):
         try:
             url = "%s/repos/%s/%s/raw-file/tip/%s" % (self.tool_shed_url, self.owner, self.name, path)
-            print url
             path, headers = urllib.urlretrieve(url)
             return path
         except Exception as e:
