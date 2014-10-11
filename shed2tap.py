@@ -16,8 +16,8 @@ from bioblend import toolshed
 
 TOOLSHED = "https://toolshed.g2.bx.psu.edu"
 TOOLSHED_MAP = {
-    "tsm": "https://toolshed.g2.bx.psu.edu",
-    "tst": "https://testtoolshed.g2.bx.psu.edu",
+    "toolshed": "https://toolshed.g2.bx.psu.edu",
+    "testtoolshed": "https://testtoolshed.g2.bx.psu.edu",
 }
 GIT_USER = "jmchilton"
 if sys.platform == "darwin":
@@ -35,7 +35,7 @@ end
 
 
 @click.command()
-@click.option('--tool_shed', default="tsm", type=click.Choice(TOOLSHED_MAP.keys()), help='Tool shed to target.')
+@click.option('--tool_shed', default="toolshed", type=click.Choice(TOOLSHED_MAP.keys()), help='Tool shed to target.')
 @click.option('--owner', default=None, help='Limit generation to specific owner.')
 @click.option('--name_filter', default=None, help='Apply regex to name filters.')
 @click.option('--git_user', default="jmchilton")
@@ -536,9 +536,9 @@ class Repo(object):
     def from_xml(elem):
         tool_shed_url = elem.attrib["toolshed"]
         if "testtoolshed" in tool_shed_url:
-            prefix = "tst"
+            prefix = "testtoolshed"
         else:
-            prefix = "tsm"
+            prefix = "toolshed"
         return Repo(
             prefix=prefix,
             name=elem.attrib["name"],
