@@ -337,6 +337,7 @@ class Package(object):
         self.install_el = install_el
         self.extensions_used = set()
         self.all_actions = self.get_all_actions()
+        self.no_arch_option = self.has_no_achitecture_install()
 
     def get_all_actions(self):
         action_or_group = self.install_el[0]
@@ -360,6 +361,7 @@ class Package(object):
         parts = [p[0].upper() + p[1:] for p in temp.split("_")]
         class_name = "".join(parts).replace("|", "_")
         formula_builder.set_class_name(class_name)
+        formula_builder.add_line('''option "without-architecture", "Build without allowing architecture information (to force source install when binaries are available)."''')
         self.pop_download_block(formula_builder)
         self.pop_deps(formula_builder)
         self.pop_install_def(formula_builder)
@@ -448,6 +450,8 @@ class Package(object):
                     conds.append("Hardware.is_64_bit?")
                 elif actions.architecture and actions.architecture == "i386":
                     conds.append("Hardware.is_32_bit?")
+                if conds and self.no_arch_option:
+                    conds.append('!build.without?("architecture")')
                 conds_str = " and ".join(conds)
                 if not conds_str:
                     assert i == len(all_actions) - 1, actions
@@ -458,6 +462,14 @@ class Package(object):
                     formula_builder.add_and_indent("%s %s" % (cond_op, conds_str))
                     func(actions)
             formula_builder.end()
+
+    def has_no_achitecture_install(self):
+        all_actions = self.all_actions
+        if len(all_actions) < 2:
+            return False
+        else:
+            last_action = all_actions[-1]
+            return (not last_action.architecture) and (not last_action.os)
 
     def pop_download(self, actions, formula_builder):
         one_populated = False
