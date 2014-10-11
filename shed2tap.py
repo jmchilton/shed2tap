@@ -46,7 +46,7 @@ def main(**kwds):
     target = os.path.join(kwds["brew_directory"], "Library", "Taps", user, repo_name )
 
     tap = Tap("%s/%s" % (user, kwds["tool_shed"]))
-
+    shell("rm -rf %s" % target)
     shell("mkdir -p %s" % target)
     prefix = kwds["tool_shed"]
     tool_shed_url = TOOLSHED_MAP[prefix]
