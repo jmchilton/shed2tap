@@ -242,6 +242,8 @@ class Action(object):
             resource = url_to_resource(self.text)
             if self.extract:
                 statements.append("resource('%s').stage do" % resource)
+                statements.append('''    # Tool Shed would download inside build directory instead of its own- so move it.''')
+                statements.append('''    buildpath.install Dir["../*"]''')
                 statements.append("end")
             else:
                 statements.append("# download file without extract - already available?")
