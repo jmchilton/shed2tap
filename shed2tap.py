@@ -544,7 +544,7 @@ class Repo(object):
             setattr(self, key, value)
 
     def recipe_base_name(self):
-        owner = self.owner
+        owner = self.owner.replace("-", "")
         name = self.name
         name = name.replace("_", "").replace("-", "")
         base = "%s_%s" % (owner, name)
