@@ -57,7 +57,11 @@ def main(**kwds):
         if not dependencies_file:
             click.echo("skipping repository %s, no tool_dependencies.xml" % repo)
             continue
-        dependencies = Dependencies(dependencies_file, repo, tap)
+        try:
+            dependencies = Dependencies(dependencies_file, repo, tap)
+        except Exception as e:
+            print "Failed to parse dependencies for repo %s, skipping." % repo
+            continue
         dependencies_list.append(dependencies)
 
     for dependencies in dependencies_list:
