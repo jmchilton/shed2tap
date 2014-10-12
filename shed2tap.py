@@ -430,7 +430,15 @@ class Package(object):
             formula_builder.add_line("environment_actions = []")
 
         def handle_actions(actions):
-            return self.populate_actions(formula_builder, actions.actions[1:])
+            if not actions.actions:
+                return
+
+            first_action = actions.actions[0]
+            for_pop = actions.actions
+            if first_action.type in ["download_by_url", "download_file"]:
+                for_pop = for_pop[1:]
+
+            return self.populate_actions(formula_builder, for_pop)
 
         if self.actions_diff_only_by_download():
             handle_actions(self.all_actions[0])
