@@ -263,6 +263,7 @@ class Action(object):
         else:
             return None
 
+    @property
     def explicit_variables(self):
         type = self.type
         if type == "set_environment":
