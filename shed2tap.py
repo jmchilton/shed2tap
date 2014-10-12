@@ -574,6 +574,8 @@ class Package(object):
         download_line = '''url "%s"''' % url
         if action and action.type == "download_file" and not action.extract:
             download_line += ", :using => :nounzip"
+        if action is None:
+            formula_builder.add_line("# Each homebrew formula must have at least one download, tool shed doesn't require this so hacking in hello source download.")
         formula_builder.add_line(download_line)
         formula_builder.add_line('''sha1 "%s"''' % sha1)
 
