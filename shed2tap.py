@@ -202,15 +202,15 @@ class Action(object):
             if named_destination:
                 statements.append('''%s.install %s''' % (named_destination, shell_string(self.source)))
             else:
-                statements.append('''system "mkdir", "-fp", %s''' % shell_string(self.destination))
-                statements.append('''system "mv", %s, %s''' % (shell_string(self.source), shell_string(self.destination)))
+                statements.append('''system "mkdir", "-p", %s''' % shell_string(self.destination))
+                statements.append('''mv %s, %s''' % (shell_string(self.source), shell_string(self.destination)))
         elif action_type == "move_directory_files":
             named_destination = self.named_dir(self.destination_directory)
             if named_destination:
                 statements.append('''%s.install Dir["%s/*"]''' % (named_destination, shell_string(self.source_directory, quote_now=False)))
             else:
-                statements.append('''system "mkdir", "-fp", %s''' % shell_string(self.destination_directory))
-                statements.append('''system "mv "%s/*" %s ''' % (shell_string(self.source_directory, quote_now=False), shell_string(self.destination_directory)))
+                statements.append('''system "mkdir", "-p", %s''' % shell_string(self.destination_directory))
+                statements.append('''mv Dir["%s/*"], %s ''' % (shell_string(self.source_directory, quote_now=False), shell_string(self.destination_directory)))
         elif action_type == "set_environment":
             modify_environment = []
             for variable in self.variables:
@@ -248,7 +248,7 @@ class Action(object):
         elif action_type == "change_directory":
             statements.append("cd '%s'" % self.directory)
         elif action_type == "make_directory":
-            statements.append('''system "mkdir", "-fp", %s''' % shell_string(self.directory))
+            statements.append('''system "mkdir", "-p", %s''' % shell_string(self.directory))
         else:
             statements.append(self.RAW_RUBY)
 
