@@ -238,13 +238,14 @@ class Action(object):
             statements.append('''system "make install"''')
         elif action_type == "download_file":
             resource = url_to_resource(self.text)
+            statements.append("resource('%s').stage do" % resource)
+            statements.append('''    # Tool Shed would download inside build directory instead of its own - so move download.''')
             if self.extract:
-                statements.append("resource('%s').stage do" % resource)
-                statements.append('''    # Tool Shed would download inside build directory instead of its own- so move it.''')
                 statements.append('''    buildpath.install Dir["../*"]''')
-                statements.append("end")
             else:
-                statements.append("# download file without extract - already available?")
+                statements.append('''    buildpath.install Dir["*"]''')
+            statements.append("end")
+
         elif action_type == "change_directory":
             statements.append("cd '%s'" % self.directory)
         elif action_type == "make_directory":
