@@ -35,6 +35,29 @@ def environment(actions)
 end
 """
 
+EXTENSION_PYTHON = """
+  def depend_python(python_recipe)
+    ENV["PYTHONHOME"] = Formula[python_recipe].prefix
+    ENV["PYTHONPATH"] = Formula[python_recipe].prefix
+    ENV.prepend_path "PATH", prefix / "bin"
+    ENV.prepend_path "PYTHONPATH", prefix
+  end
+
+  def easy_install(what)
+    system "easy_install", "--install-dir", prefix, "--script-dir", "#{prefix}/bin", what
+  end
+"""
+
+EXTENSION_R = """
+"""
+
+EXTENSION_RUBY = """
+"""
+
+EXTENSION_PERL = """
+
+"""
+
 
 @click.command()
 @click.option('--tool_shed', default="toolshed", type=click.Choice(TOOLSHED_MAP.keys()), help='Tool shed to target.')
@@ -48,7 +71,7 @@ def main(**kwds):
     target = os.path.join(kwds["brew_directory"], "Library", "Taps", user, repo_name )
 
     tap = Tap("%s/%s" % (user, kwds["tool_shed"]))
-    shell("rm -rf %s" % target)
+    #shell("rm -rf %s" % target)
     shell("mkdir -p %s" % target)
     prefix = kwds["tool_shed"]
     tool_shed_url = TOOLSHED_MAP[prefix]
@@ -75,12 +98,6 @@ def main(**kwds):
             except Exception as e:
                 traceback.print_exc()
                 print "Failed to convert package [%s], exception [%s]" % (package, e)
-            #print "Recipe in file: %s" % file
-            #print "=" * 79
-            #print contents
-            #print "=" * 79
-        #for dependency in dependencies.dependencies:
-        #    print dependency
 
     shell("git init %s" % target)
     shell("git --work-tree %s --git-dir %s/.git add %s/*" % (target, target, target))
@@ -106,10 +123,15 @@ class Dependencies(object):
             print "No packages found for repo %s" % repo
         for package_el in package_els:
             install_els = package_el.findall("install")
+            readme_els = package_el.findall("readme")
+            if len(readme_els) > 0:
+                readme = readme_els[0].text
+            else:
+                readme = None
             assert len(install_els) in (0, 1)
             if len(install_els) == 1:
                 install_el = install_els[0]
-                packages.append(Package(self, package_el, install_el))
+                packages.append(Package(self, package_el, install_el, readme=readme))
             else:
                 repository_el = package_el.find("repository")
                 assert repository_el is not None, "no repository in package el for %s" % repo
@@ -250,7 +272,152 @@ class Action(object):
             statements.append("cd '%s'" % self.directory)
         elif action_type == "make_directory":
             statements.append('''system "mkdir", "-p", %s''' % shell_string(self.directory))
+        elif action_type == "setup_perl_environment":
+            statements.append('''onoe("Unhandled tool shed action perl encountered.")''')
+            #cmd = '''PERL_MM_USE_DEFAULT=1; export PERL_MM_USE_DEFAULT; '''
+            #cmd += 'export PERL5LIB=$INSTALL_DIR/lib/perl5:$PERL5LIB;'
+            #cmd += 'export PATH=$INSTALL_DIR/bin:$PATH;'
+            #dir = self.url_download( work_dir, perl_package_name, url, extract=True )
+            #if perl_package.find( '://' ) != -1:
+            #                        if os.path.exists( os.path.join( tmp_work_dir, 'Makefile.PL' ) ):
+            #cmd += '''perl Makefile.PL INSTALL_BASE=$INSTALL_DIR && make && make install'''
+            #            elif os.path.exists( os.path.join( tmp_work_dir, 'Build.PL' ) ):
+            #            cmd += '''perl Build.PL --install_base $INSTALL_DIR && perl Build && perl Build install'''
+            # else
+            #cmd += '''cpanm --local-lib=$INSTALL_DIR %s''' % ( perl_package )
+            #cmd = install_environment.build_command( basic_util.evaluate_template( cmd, install_environment ) )
+        elif action_type == "setup_ruby_environment":
+            statements.append('''onoe("Unhandled tool shed action ruby encountered.")''')
+            # for ruby_package_tup in ruby_package_tups:
+            #     gem, gem_version = ruby_package_tup
+            #     if os.path.isfile( gem ):
+            #         # we assume a local shipped gem file
+            #         cmd = '''PATH=$PATH:$RUBY_HOME/bin; export PATH; GEM_HOME=$INSTALL_DIR; export GEM_HOME;
+            #                 gem install --local %s''' % ( gem )
+            #     elif gem.find( '://' ) != -1:
+            #         # We assume a URL to a gem file.
+            #         url = gem
+            #         gem_name = url.split( '/' )[ -1 ]
+            #         self.url_download( work_dir, gem_name, url, extract=False )
+            #         cmd = '''PATH=$PATH:$RUBY_HOME/bin; export PATH; GEM_HOME=$INSTALL_DIR; export GEM_HOME;
+            #                 gem install --local %s ''' % ( gem_name )
+            #     else:
+            #         # gem file from rubygems.org with or without version number
+            #         if gem_version:
+            #             # Specific ruby gem version was requested.
+            #             # Use raw strings so that python won't automatically unescape the quotes before passing the command
+            #             # to subprocess.Popen.
+            #             cmd = r'''PATH=$PATH:$RUBY_HOME/bin; export PATH; GEM_HOME=$INSTALL_DIR; export GEM_HOME;
+            #                 gem install %s --version "=%s"''' % ( gem, gem_version)
+            #         else:
+            #             # no version number given
+            #             cmd = '''PATH=$PATH:$RUBY_HOME/bin; export PATH; GEM_HOME=$INSTALL_DIR; export GEM_HOME;
+            #                 gem install %s''' % ( gem )
+
+            # env_file_builder.append_line( name="GEM_PATH",
+            #                               action="prepend_to",
+            #                               value=install_environment.install_dir )
+            # env_file_builder.append_line( name="PATH",
+            #                               action="prepend_to",
+            #                               value=os.path.join( install_environment.install_dir, 'bin' ) )
+        elif action_type == "setup_python_environment":
+            statements.append('''onoe("Unhandled tool shed action python encountered.")''')
+            # python_package_tups = action_dict.get( 'python_package_tups', [] )
+            # for python_package_tup in python_package_tups:
+            #     package, package_version = python_package_tup
+            #     package_path = os.path.join( install_environment.tool_shed_repository_install_dir, package )
+            #     if os.path.isfile( package_path ):
+            #         # we assume a local shipped python package
+
+            #         cmd = r'''PATH=$PATH:$PYTHONHOME/bin; export PATH;
+            #                 export PYTHONPATH=$PYTHONPATH:$INSTALL_DIR;
+            #                 easy_install --no-deps --install-dir $INSTALL_DIR --script-dir $INSTALL_DIR/bin %s
+            #         ''' % ( package_path )
+            #     elif package.find( '://' ) != -1:
+            #         # We assume a URL to a python package.
+            #         url = package
+            #         package_name = url.split( '/' )[ -1 ]
+            #         self.url_download( work_dir, package_name, url, extract=False )
+
+            #         cmd = r'''PATH=$PATH:$PYTHONHOME/bin; export PATH;
+            #                 export PYTHONPATH=$PYTHONPATH:$INSTALL_DIR;
+            #                 easy_install --no-deps --install-dir $INSTALL_DIR --script-dir $INSTALL_DIR/bin %s
+            #             ''' % ( package_name )
+            #     else:
+            #         pass
+            #         # pypi can be implemented or for > python3.4 we can use the build-in system
+            #     cmd = install_environment.build_command( basic_util.evaluate_template( cmd, install_environment ) )
+            #     return_code = install_environment.handle_command( tool_dependency=tool_dependency,
+            #                                                       cmd=cmd,
+            #                                                       return_output=False )
+            #     if return_code:
+            #         if initial_download:
+            #             return tool_dependency, filtered_actions, dir
+            #         return tool_dependency, None, None
+            # # Pull in python dependencies (runtime).
+            # env_file_builder.handle_action_shell_file_paths( action_dict )
+            # env_file_builder.append_line( name="PYTHONPATH",
+            #                               action="prepend_to",
+            #                               value= os.path.join( install_environment.install_dir, 'lib', 'python') )
+            # env_file_builder.append_line( name="PATH",
+            #                               action="prepend_to",
+            #                               value=os.path.join( install_environment.install_dir, 'bin' ) )
+        elif action_type == "setup_r_environment":
+            statements.append('''onoe("Unhandled tool shed action R encountered.")''')
+            # for tarball_name in tarball_names:
+            #     # Use raw strings so that python won't automatically unescape the quotes before passing the command
+            #     # to subprocess.Popen.
+            #     cmd = r'''PATH=$PATH:$R_HOME/bin; export PATH; R_LIBS=$INSTALL_DIR; export R_LIBS;
+            #         Rscript -e "install.packages(c('%s'),lib='$INSTALL_DIR', repos=NULL, dependencies=FALSE)"''' % \
+            #         ( str( tarball_name ) )
+            #     cmd = install_environment.build_command( basic_util.evaluate_template( cmd, install_environment ) )
+            #     return_code = install_environment.handle_command( tool_dependency=tool_dependency,
+            #                                                       cmd=cmd,
+            #                                                       return_output=False )
+            #     if return_code:
+            #         if initial_download:
+            #             return tool_dependency, filtered_actions, dir
+            #         return tool_dependency, None, None
+            # # R libraries are installed to $INSTALL_DIR (install_dir), we now set the R_LIBS path to that directory
+            # # Pull in R environment (runtime).
+            # env_file_builder.handle_action_shell_file_paths( action_dict )
+            # env_file_builder.append_line( name="R_LIBS", action="prepend_to", value=install_environment.install_dir )
+        elif action_type == "setup_virtualenv":
+            pass
+            #             python_cmd = action_dict[ 'python' ]
+            # # TODO: Consider making --no-site-packages optional.
+            # setup_command = "%s %s/virtualenv.py --no-site-packages '%s'" % ( python_cmd, venv_src_directory, venv_directory )
+            # # POSIXLY_CORRECT forces shell commands . and source to have the same
+            # # and well defined behavior in bash/zsh.
+            # activate_command = "POSIXLY_CORRECT=1; . %s" % os.path.join( venv_directory, "bin", "activate" )
+            # if action_dict[ 'use_requirements_file' ]:
+            #     install_command = "python '%s' install -r '%s' --log '%s'" % \
+            #         ( os.path.join( venv_directory, "bin", "pip" ),
+            #           requirements_path,
+            #           os.path.join( install_environment.install_dir, 'pip_install.log' ) )
+            # else:
+            #     install_command = ''
+            #     with open( requirements_path, "rb" ) as f:
+            #         while True:
+            #             line = f.readline()
+            #             if not line:
+            #                 break
+            #             line = line.strip()
+            #             if line:
+            #                 line_install_command = "python '%s' install %s --log '%s'" % \
+            #                     ( os.path.join( venv_directory, "bin", "pip" ),
+            #                       line,
+            #                       os.path.join( install_environment.install_dir, 'pip_install_%s.log' % ( line ) ) )
+            #                 if not install_command:
+            #                     install_command = line_install_command
+            #                 else:
+            #                     install_command = "%s && %s" % ( install_command, line_install_command )
+            # full_setup_command = "%s; %s; %s" % ( setup_command, activate_command, install_command )
+            # return_code = install_environment.handle_command( tool_dependency=tool_dependency,
+            #                                                   cmd=full_setup_command,
+            #                                                   return_output=False )
         else:
+
             statements.append(self.RAW_RUBY)
 
         return statements
@@ -276,6 +443,19 @@ class Action(object):
     def from_elem(clazz, elem, package):
         type = elem.attrib["type"]
         kwds = {}
+
+        def parse_action_repo(elem):
+            repo_elem = elem.find("repository")
+            repo = Repo.from_xml(repo_elem)
+            kwds["repo"] = repo
+
+        def parse_package_elems(elem):
+            package_els = elem.findall("package")
+            packages = []
+            for package_el in package_els:
+                packages.append(package_el.text)
+            kwds["packages"] = packages
+
         if type == "download_by_url":
             kwds["text"] = elem.text
         elif type == "download_file":
@@ -310,6 +490,22 @@ class Action(object):
             kwds["directory"] = elem.text
         elif type == "make_directory":
             kwds["directory"] = elem.text
+        elif type == "setup_perl_environment":
+            parse_action_repo(elem)
+            parse_package_elems(elem)
+        elif type == "setup_ruby_environment":
+            parse_action_repo(elem)
+            parse_package_elems(elem)
+        elif type == "setup_python_environment":
+            parse_action_repo(elem)
+            parse_package_elems(elem)
+        elif type == "setup_virtualenv":
+            kwds["use_requirements_file"] = asbool(elem.attrib.get("use_requirements_file", "True"))
+            kwds["python" ] = elem.get('python', 'python')
+            kwds["requirements"] = elem.text or 'requirements.txt'  # TODO: evaled
+        elif type == "setup_r_environment":
+            parse_action_repo(elem)
+            parse_package_elems(elem)
         elif type == "set_environment_for_install":
             kwds["RAW_RUBY"] = "# Skipping set_environment_for_install command, handled by platform brew."
         else:
@@ -319,7 +515,7 @@ class Action(object):
 
 
 class SetVariable(object):
-    
+
     def __init__(self, elem):
         self.action = elem.attrib["action"]
         self.name = elem.attrib["name"]
@@ -374,10 +570,11 @@ def templatize_string(tool_shed_str):
 
 class Package(object):
 
-    def __init__(self, dependencies, package_el, install_el):
+    def __init__(self, dependencies, package_el, install_el, readme):
         self.dependencies = dependencies
         self.package_el = package_el
         self.install_el = install_el
+        self.readme = readme
         self.extensions_used = set()
         self.all_actions = self.get_all_actions()
         self.no_arch_option = self.has_no_achitecture_install()
@@ -408,8 +605,18 @@ class Package(object):
         parts = [p[0].upper() + p[1:] for p in temp.split("_")]
         class_name = "".join(parts).replace("|", "_")
         formula_builder.set_class_name(class_name)
+        repo = self.dependencies.repo
+        url = "%s/%s/%s" % (repo.tool_shed_url, repo.owner, repo.name)
+        formula_builder.add_line("# Recipe auto-generate from repository %s" % url)
+        if self.readme:
+            formula_builder.add_line("# Tool Shed Readme:")
+            for line in self.readme.split("\n"):
+                formula_builder.add_line("#    %s" % line)
+        formula_builder.add_line("")
         formula_builder.add_line('''option "without-architecture", "Build without allowing architecture information (to force source install when binaries are available)."''')
+        formula_builder.add_line("")
         self.pop_download_block(formula_builder)
+        formula_builder.add_line("")
         self.pop_deps(formula_builder)
         self.pop_install_def(formula_builder)
         self.pop_extensions(formula_builder)
@@ -733,6 +940,22 @@ def repos(tool_shed_url, name_filter=None, owner=None):
         pattern = re.compile(name_filter)
         repos = [r for r in repos if pattern.match(r["name"])]
     return repos
+
+
+truthy = frozenset(['true', 'yes', 'on', 'y', 't', '1'])
+falsy = frozenset(['false', 'no', 'off', 'n', 'f', '0'])
+
+
+def asbool(obj):
+    if isinstance(obj, basestring):
+        obj = obj.strip().lower()
+        if obj in truthy:
+            return True
+        elif obj in falsy:
+            return False
+        else:
+            raise ValueError("String is not true/false: %r" % obj)
+    return bool(obj)
 
 
 if __name__ == "__main__":
